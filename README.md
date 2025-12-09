@@ -2,6 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/gowool/got.svg)](https://pkg.go.dev/github.com/gowool/got)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gowool/got)](https://goreportcard.com/report/github.com/gowool/got)
+[![codecov](https://codecov.io/github/gowool/got/graph/badge.svg?token=U23BO6XII4)](https://codecov.io/github/gowool/got)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/gowool/got/blob/main/LICENSE)
 
 A Go template theme management library that provides a flexible system for organizing and rendering HTML templates with support for template inheritance, themes, and parent-child relationships.
