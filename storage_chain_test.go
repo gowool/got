@@ -262,7 +262,7 @@ func TestStorageChain_Find_ContextPassing(t *testing.T) {
 		},
 		{
 			name: "context with value",
-			ctx:  context.WithValue(context.Background(), "key", "value"),
+			ctx:  context.WithValue(context.Background(), "key", "value"), //nolint:staticcheck
 		},
 	}
 

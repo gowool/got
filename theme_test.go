@@ -111,8 +111,8 @@ func TestTheme_AddFuncMap(t *testing.T) {
 
 	// Test adding more functions
 	funcMap2 := template.FuncMap{
-		"lower": strings.ToLower,
-		"title": strings.Title,
+		"lower":    strings.ToLower,
+		"contains": strings.Contains,
 	}
 
 	theme.AddFuncMap(funcMap2)
@@ -120,7 +120,7 @@ func TestTheme_AddFuncMap(t *testing.T) {
 	assert.Equal(t, 3, len(funcMap))
 	assert.Contains(t, funcMap, "upper")
 	assert.Contains(t, funcMap, "lower")
-	assert.Contains(t, funcMap, "title")
+	assert.Contains(t, funcMap, "contains")
 
 	// Test overwriting existing function
 	funcMap3 := template.FuncMap{

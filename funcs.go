@@ -31,12 +31,20 @@ var Funcs = template.FuncMap{
 	},
 	"empty": func(given any) bool {
 		g := reflect.ValueOf(given)
-		return !g.IsValid() || g.IsNil() || g.IsZero()
+		if !g.IsValid() {
+			return true
+		}
+		switch g.Kind() {
+		case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+			return g.IsNil() || g.IsZero() || (g.Len() == 0)
+		default:
+			return g.IsZero()
+		}
 	},
 	"escape": html.EscapeString,
 	"deref": func(s any) any {
 		v := reflect.ValueOf(s)
-		if v.Kind() == reflect.Pointer {
+		if v.Kind() == reflect.Pointer && !v.IsNil() {
 			return v.Elem().Interface()
 		}
 		return s
@@ -126,7 +134,13 @@ var Funcs = template.FuncMap{
 		return encode(v, xml.Marshal)
 	},
 	"yaml": func(v any) string {
-		return encode(v, yaml.Marshal)
+		defer func() { _ = recover() }()
+		var buf bytes.Buffer
+		enc := yaml.NewEncoder(&buf)
+		if err := enc.Encode(v); err != nil {
+			return ""
+		}
+		return template.JSEscapeString(internal.String(buf.Bytes()))
 	},
 	"json_pretty": func(v any) string {
 		return pretty(v, json.MarshalIndent)
@@ -135,6 +149,7 @@ var Funcs = template.FuncMap{
 		return pretty(v, xml.MarshalIndent)
 	},
 	"yaml_pretty": func(v any) string {
+		defer func() { _ = recover() }()
 		var buf bytes.Buffer
 		enc := yaml.NewEncoder(&buf)
 		enc.SetIndent(2)
