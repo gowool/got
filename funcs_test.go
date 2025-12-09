@@ -487,12 +487,18 @@ func TestFuncs_MapOperations(t *testing.T) {
 				result := v(tt.inputs[0].(map[any]any))
 				expected := tt.expected.([]any)
 				assert.Len(t, result, len(expected))
-				if tt.funcName == "values" {
+				switch tt.funcName {
+				case "values":
 					// For values function, check that all expected values are present (order not guaranteed)
 					for _, val := range expected {
 						assert.Contains(t, result, val)
 					}
-				} else {
+				case "keys":
+					// For keys function, check that all expected keys are present (order not guaranteed)
+					for _, key := range expected {
+						assert.Contains(t, result, key)
+					}
+				default:
 					assert.Equal(t, tt.expected, result)
 				}
 			case func(map[any]any, any) bool:
