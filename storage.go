@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"unsafe"
+
+	"github.com/gowool/got/internal"
 )
 
 var ErrTemplateNotFound = errors.New("template not found")
@@ -38,7 +39,5 @@ func (s *StorageFS) Find(_ context.Context, theme, name string) (Template, error
 		return nil, fmt.Errorf("storage: failed to read template %s/%s: %w", theme, name, err)
 	}
 
-	content := unsafe.String(unsafe.SliceData(raw), len(raw))
-
-	return newTemplate(theme, name, content), nil
+	return newTemplate(theme, name, internal.String(raw)), nil
 }
