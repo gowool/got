@@ -17,6 +17,10 @@ func NewStorageChain(storages ...Storage) *StorageChain {
 	return &StorageChain{storages: storages}
 }
 
+func (s *StorageChain) Add(storage Storage) {
+	s.storages = append(s.storages, storage)
+}
+
 func (s *StorageChain) Find(ctx context.Context, theme, name string) (Template, error) {
 	for _, storage := range s.storages {
 		tpl, err := storage.Find(ctx, theme, name)
