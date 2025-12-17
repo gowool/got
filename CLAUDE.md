@@ -20,8 +20,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - Extracts template path from HTML comments (`<!-- path -->`)
    - Provides Theme(), Path(), Name(), and Content() methods
 
-3. **Storage (`storage.go`)**: Template storage abstraction
-   - `StorageFS` implementation using Go's `fs.FS`
+3. **Store (`store.go`)**: Template store abstraction
+   - `StoreFS` implementation using Go's `fs.FS`
    - Organizes templates by theme directories
    - Template lookup with parent theme fallback support
 
@@ -78,8 +78,8 @@ Templates use HTML comments to define inheritance paths:
 ### Theme Hierarchy
 Create parent-child relationships:
 ```go
-parent := NewTheme("default", storage)
-child := NewTheme("custom", storage)
+parent := NewTheme("default", store)
+child := NewTheme("custom", store)
 child.SetParent(parent)
 ```
 
@@ -88,7 +88,7 @@ Custom functions are automatically propagated to parent themes when set.
 
 ### Template Resolution
 The system resolves templates by:
-1. Looking in current theme's storage
+1. Looking in current theme's store
 2. Falling back to parent theme if not found
 3. Parsing template dependencies recursively
 4. Building complete Go template with all dependencies
@@ -97,7 +97,7 @@ The system resolves templates by:
 
 - `ErrTemplateNotFound`: Primary error for missing templates
 - Errors include theme and template name for debugging
-- Storage errors wrap filesystem errors with context
+- Store errors wrap filesystem errors with context
 
 ## Performance Considerations
 
@@ -109,4 +109,4 @@ The system resolves templates by:
 ## Testing Strategy
 
 - Comprehensive unit tests with table-driven test patterns using `testify`
-- Mock implementations for storage and external dependencies using `testify`
+- Mock implementations for store and external dependencies using `testify`

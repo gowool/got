@@ -11,20 +11,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewStorageMemory(t *testing.T) {
-	storage := NewStorageMemory()
-	require.NotNil(t, storage, "NewStorageMemory() returned nil")
+func TestNewStoreMemory(t *testing.T) {
+	store := NewStoreMemory()
+	require.NotNil(t, store, "NewStoreMemory() returned nil")
 
 	// Verify it's properly initialized by checking if we can add/find templates
-	storage.Add("test", "example.html", "<div>test</div>")
+	store.Add("test", "example.html", "<div>test</div>")
 
-	template, err := storage.Find(context.Background(), "test", "example.html")
+	template, err := store.Find(context.Background(), "test", "example.html")
 	assert.NoError(t, err, "Expected to find template after initialization")
 	assert.NotNil(t, template, "Expected template to be found")
 }
 
-func TestStorageMemory_Add(t *testing.T) {
-	storage := NewStorageMemory()
+func TestStoreMemory_Add(t *testing.T) {
+	store := NewStoreMemory()
 
 	tests := []struct {
 		name     string
@@ -60,10 +60,10 @@ func TestStorageMemory_Add(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage.Add(tt.theme, tt.template, tt.content)
+			store.Add(tt.theme, tt.template, tt.content)
 
 			// Verify the template was added by finding it
-			template, err := storage.Find(context.Background(), tt.theme, tt.template)
+			template, err := store.Find(context.Background(), tt.theme, tt.template)
 			require.NoError(t, err, "Add() failed, template not found")
 			require.NotNil(t, template, "Expected template to be found")
 
@@ -73,13 +73,13 @@ func TestStorageMemory_Add(t *testing.T) {
 	}
 }
 
-func TestStorageMemory_Find(t *testing.T) {
-	storage := NewStorageMemory()
+func TestStoreMemory_Find(t *testing.T) {
+	store := NewStoreMemory()
 
 	// Add some test templates
-	storage.Add("default", "home.html", "<div>Home</div>")
-	storage.Add("admin", "dashboard.html", "<!-- layouts/admin -->\n<div>Dashboard</div>")
-	storage.Add("blog", "post.html", "<!-- layouts/post -->\n{{define \"content\"}}<article>Post</article>{{end}}")
+	store.Add("default", "home.html", "<div>Home</div>")
+	store.Add("admin", "dashboard.html", "<!-- layouts/admin -->\n<div>Dashboard</div>")
+	store.Add("blog", "post.html", "<!-- layouts/post -->\n{{define \"content\"}}<article>Post</article>{{end}}")
 
 	tests := []struct {
 		name     string
@@ -131,7 +131,7 @@ func TestStorageMemory_Find(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			template, err := storage.Find(context.Background(), tt.theme, tt.template)
+			template, err := store.Find(context.Background(), tt.theme, tt.template)
 
 			if tt.wantErr {
 				assert.Error(t, err, "Expected error but got none")
@@ -149,13 +149,13 @@ func TestStorageMemory_Find(t *testing.T) {
 	}
 }
 
-func TestStorageMemory_Find_WithContext(t *testing.T) {
-	storage := NewStorageMemory()
-	storage.Add("test", "example.html", "<div>Test</div>")
+func TestStoreMemory_Find_WithContext(t *testing.T) {
+	store := NewStoreMemory()
+	store.Add("test", "example.html", "<div>Test</div>")
 
 	// Test with context
 	ctx := context.Background()
-	template, err := storage.Find(ctx, "test", "example.html")
+	template, err := store.Find(ctx, "test", "example.html")
 
 	assert.NoError(t, err, "Unexpected error with context")
 	assert.NotNil(t, template, "Expected template but got nil")
@@ -164,7 +164,7 @@ func TestStorageMemory_Find_WithContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	template, err = storage.Find(ctx, "test", "example.html")
+	template, err = store.Find(ctx, "test", "example.html")
 
 	// Note: Current implementation doesn't check context cancellation,
 	// but this test ensures it works with cancelled contexts
@@ -172,11 +172,11 @@ func TestStorageMemory_Find_WithContext(t *testing.T) {
 	assert.NotNil(t, template, "Expected template even with cancelled context")
 }
 
-func TestStorageMemory_ConcurrentAccess(t *testing.T) {
-	storage := NewStorageMemory()
+func TestStoreMemory_ConcurrentAccess(t *testing.T) {
+	store := NewStoreMemory()
 
 	// Add initial template
-	storage.Add("test", "base.html", "<div>Base</div>")
+	store.Add("test", "base.html", "<div>Base</div>")
 
 	var wg sync.WaitGroup
 	numGoroutines := 10
@@ -191,7 +191,7 @@ func TestStorageMemory_ConcurrentAccess(t *testing.T) {
 				for j := 0; j < 10; j++ { // Reduce operations to avoid too many templates
 					// Use unique keys to avoid overwrites
 					templateName := fmt.Sprintf("template_%d_%d.html", id, j)
-					storage.Add("concurrent", templateName, fmt.Sprintf("<div>Content from goroutine %d, iteration %d</div>", id, j))
+					store.Add("concurrent", templateName, fmt.Sprintf("<div>Content from goroutine %d, iteration %d</div>", id, j))
 				}
 			}(i)
 		}
@@ -199,7 +199,7 @@ func TestStorageMemory_ConcurrentAccess(t *testing.T) {
 		wg.Wait()
 
 		// Verify some templates were added
-		template, err := storage.Find(context.Background(), "concurrent", "template_0_0.html")
+		template, err := store.Find(context.Background(), "concurrent", "template_0_0.html")
 		assert.NoError(t, err, "Failed to find concurrently added template")
 		assert.NotNil(t, template, "Expected template but got nil")
 	})
@@ -211,7 +211,7 @@ func TestStorageMemory_ConcurrentAccess(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				for j := 0; j < numOperations; j++ {
-					_, err := storage.Find(context.Background(), "test", "base.html")
+					_, err := store.Find(context.Background(), "test", "base.html")
 					assert.NoError(t, err, "Concurrent find failed: %v", err)
 				}
 			}()
@@ -229,14 +229,14 @@ func TestStorageMemory_ConcurrentAccess(t *testing.T) {
 				for j := 0; j < 10; j++ {
 					// Add operation
 					templateName := fmt.Sprintf("mixed_%d_%d.html", id, j)
-					storage.Add("mixed", templateName, "<div>Mixed</div>")
+					store.Add("mixed", templateName, "<div>Mixed</div>")
 
 					// Find operation
-					_, err := storage.Find(context.Background(), "test", "base.html")
+					_, err := store.Find(context.Background(), "test", "base.html")
 					assert.NoError(t, err, "Mixed operation find failed: %v", err)
 
 					// Find the template we just added
-					_, err = storage.Find(context.Background(), "mixed", templateName)
+					_, err = store.Find(context.Background(), "mixed", templateName)
 					assert.NoError(t, err, "Mixed operation find added template failed: %v", err)
 				}
 			}(i)
@@ -246,18 +246,18 @@ func TestStorageMemory_ConcurrentAccess(t *testing.T) {
 	})
 }
 
-func TestStorageMemory_KeyGeneration(t *testing.T) {
-	storage := NewStorageMemory()
+func TestStoreMemory_KeyGeneration(t *testing.T) {
+	store := NewStoreMemory()
 
 	// Test that theme+name is used as the key
-	storage.Add("theme1", "name1", "<div>Content 1</div>")
-	storage.Add("theme1", "name2", "<div>Content 2</div>")
-	storage.Add("theme2", "name1", "<div>Content 3</div>")
+	store.Add("theme1", "name1", "<div>Content 1</div>")
+	store.Add("theme1", "name2", "<div>Content 2</div>")
+	store.Add("theme2", "name1", "<div>Content 3</div>")
 
 	// Verify all three templates exist and are different
-	tmpl1, err1 := storage.Find(context.Background(), "theme1", "name1")
-	tmpl2, err2 := storage.Find(context.Background(), "theme1", "name2")
-	tmpl3, err3 := storage.Find(context.Background(), "theme2", "name1")
+	tmpl1, err1 := store.Find(context.Background(), "theme1", "name1")
+	tmpl2, err2 := store.Find(context.Background(), "theme1", "name2")
+	tmpl3, err3 := store.Find(context.Background(), "theme2", "name1")
 
 	require.NoError(t, err1, "Error finding template1")
 	require.NoError(t, err2, "Error finding template2")
@@ -271,32 +271,32 @@ func TestStorageMemory_KeyGeneration(t *testing.T) {
 	assert.NotEqual(t, tmpl1.Content(), tmpl3.Content(), "Templates with same name but different themes should have different content")
 }
 
-func TestStorageMemory_OverwriteTemplate(t *testing.T) {
-	storage := NewStorageMemory()
+func TestStoreMemory_OverwriteTemplate(t *testing.T) {
+	store := NewStoreMemory()
 
 	// Add initial template
-	storage.Add("test", "example.html", "<div>Original</div>")
+	store.Add("test", "example.html", "<div>Original</div>")
 
 	// Verify original content
-	tmpl, err := storage.Find(context.Background(), "test", "example.html")
+	tmpl, err := store.Find(context.Background(), "test", "example.html")
 	require.NoError(t, err, "Error finding original template")
 	require.NotNil(t, tmpl, "Expected template to be found")
 
 	assert.Equal(t, "<div>Original</div>", tmpl.Content(), "Expected original content")
 
 	// Overwrite with new content
-	storage.Add("test", "example.html", "<div>Updated</div>")
+	store.Add("test", "example.html", "<div>Updated</div>")
 
 	// Verify updated content
-	tmpl, err = storage.Find(context.Background(), "test", "example.html")
+	tmpl, err = store.Find(context.Background(), "test", "example.html")
 	require.NoError(t, err, "Error finding updated template")
 	require.NotNil(t, tmpl, "Expected template to be found after update")
 
 	assert.Equal(t, "<div>Updated</div>", tmpl.Content(), "Expected updated content")
 }
 
-func TestStorageMemory_ComplexTemplateContent(t *testing.T) {
-	storage := NewStorageMemory()
+func TestStoreMemory_ComplexTemplateContent(t *testing.T) {
+	store := NewStoreMemory()
 
 	complexContent := `<!-- layouts/base -->
 <!DOCTYPE html>
@@ -309,9 +309,9 @@ func TestStorageMemory_ComplexTemplateContent(t *testing.T) {
 </body>
 </html>`
 
-	storage.Add("complex", "base.html", complexContent)
+	store.Add("complex", "base.html", complexContent)
 
-	tmpl, err := storage.Find(context.Background(), "complex", "base.html")
+	tmpl, err := store.Find(context.Background(), "complex", "base.html")
 	require.NoError(t, err, "Error finding complex template")
 	require.NotNil(t, tmpl, "Expected template to be found")
 
@@ -334,8 +334,8 @@ func TestStorageMemory_ComplexTemplateContent(t *testing.T) {
 	assert.Equal(t, expectedContent, tmpl.Content(), "Content mismatch")
 }
 
-func TestStorageMemory_Performance(t *testing.T) {
-	storage := NewStorageMemory()
+func TestStoreMemory_Performance(t *testing.T) {
+	store := NewStoreMemory()
 
 	// Add performance test
 	numTemplates := 1000
@@ -344,7 +344,7 @@ func TestStorageMemory_Performance(t *testing.T) {
 	for i := 0; i < numTemplates; i++ {
 		templateName := fmt.Sprintf("template_%d.html", i)
 		content := fmt.Sprintf("<div>Template content %d</div>", i)
-		storage.Add("perf", templateName, content)
+		store.Add("perf", templateName, content)
 	}
 
 	addDuration := time.Since(start)
@@ -354,7 +354,7 @@ func TestStorageMemory_Performance(t *testing.T) {
 
 	for i := 0; i < numTemplates; i++ {
 		templateName := fmt.Sprintf("template_%d.html", i)
-		_, err := storage.Find(context.Background(), "perf", templateName)
+		_, err := store.Find(context.Background(), "perf", templateName)
 		assert.NoError(t, err, "Error finding template %d", i)
 	}
 

@@ -18,17 +18,17 @@ var (
 
 type Theme struct {
 	name    string
-	storage Storage
+	store   Store
 	cache   sync.Map
 	funcMap sync.Map
 	debug   atomic.Bool
 	parent  atomic.Pointer[Theme]
 }
 
-func NewTheme(name string, storage Storage) *Theme {
+func NewTheme(name string, store Store) *Theme {
 	return &Theme{
-		name:    name,
-		storage: storage,
+		name:  name,
+		store: store,
 	}
 }
 
@@ -204,7 +204,7 @@ func (t *Theme) findByTemplate(ctx context.Context, data map[string]Template, it
 }
 
 func (t *Theme) find(ctx context.Context, name string) (Template, error) {
-	item, err := t.storage.Find(ctx, t.name, name)
+	item, err := t.store.Find(ctx, t.name, name)
 	if err == nil {
 		return item, nil
 	}

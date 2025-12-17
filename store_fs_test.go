@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewStorageFS(t *testing.T) {
+func TestNewStoreFS(t *testing.T) {
 	tests := []struct {
 		name string
 		fsys fstest.MapFS
@@ -36,16 +36,16 @@ func TestNewStorageFS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := NewStorageFS(tt.fsys)
-			require.NotNil(t, storage, "NewStorageFS() should not return nil")
+			store := NewStoreFS(tt.fsys)
+			require.NotNil(t, store, "NewStoreFS() should not return nil")
 
-			// Verify it implements Storage interface
-			var _ Storage = storage
+			// Verify it implements Store interface
+			var _ Store = store
 		})
 	}
 }
 
-func TestStorageFS_Find_Success(t *testing.T) {
+func TestStoreFS_Find_Success(t *testing.T) {
 	// Create a mock filesystem with various template structures
 	fsys := fstest.MapFS{
 		"default/home.html": &fstest.MapFile{
@@ -69,7 +69,7 @@ func TestStorageFS_Find_Success(t *testing.T) {
 		},
 	}
 
-	storage := NewStorageFS(fsys)
+	store := NewStoreFS(fsys)
 
 	tests := []struct {
 		name            string
@@ -139,7 +139,7 @@ func TestStorageFS_Find_Success(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			template, err := storage.Find(context.Background(), tt.theme, tt.template)
+			template, err := store.Find(context.Background(), tt.theme, tt.template)
 
 			assert.NoError(t, err, "Find() should not return an error")
 			require.NotNil(t, template, "Find() should return a template")
@@ -152,18 +152,18 @@ func TestStorageFS_Find_Success(t *testing.T) {
 	}
 }
 
-func TestStorageFS_Find_WithContext(t *testing.T) {
+func TestStoreFS_Find_WithContext(t *testing.T) {
 	fsys := fstest.MapFS{
 		"test/example.html": &fstest.MapFile{
 			Data: []byte("<div>Test content</div>"),
 		},
 	}
 
-	storage := NewStorageFS(fsys)
+	store := NewStoreFS(fsys)
 
 	// Test with context
 	ctx := context.Background()
-	template, err := storage.Find(ctx, "test", "example.html")
+	template, err := store.Find(ctx, "test", "example.html")
 
 	assert.NoError(t, err, "Find() with context should not return an error")
 	assert.NotNil(t, template, "Find() with context should return a template")
@@ -172,7 +172,7 @@ func TestStorageFS_Find_WithContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	template, err = storage.Find(ctx, "test", "example.html")
+	template, err = store.Find(ctx, "test", "example.html")
 
 	// Note: Current implementation doesn't check context cancellation,
 	// but this test ensures it works with cancelled contexts
@@ -180,7 +180,7 @@ func TestStorageFS_Find_WithContext(t *testing.T) {
 	assert.NotNil(t, template, "Find() with cancelled context should return a template")
 }
 
-func TestStorageFS_Find_ErrorCases(t *testing.T) {
+func TestStoreFS_Find_ErrorCases(t *testing.T) {
 	fsys := fstest.MapFS{
 		"default/home.html": &fstest.MapFile{
 			Data: []byte("<div>Home</div>"),
@@ -190,7 +190,7 @@ func TestStorageFS_Find_ErrorCases(t *testing.T) {
 		},
 	}
 
-	storage := NewStorageFS(fsys)
+	store := NewStoreFS(fsys)
 
 	tests := []struct {
 		name     string
@@ -206,7 +206,7 @@ func TestStorageFS_Find_ErrorCases(t *testing.T) {
 			template: "missing.html",
 			wantErr:  true,
 			errIs:    ErrTemplateNotFound,
-			errMsg:   "storage fs: failed to read template default/missing.html",
+			errMsg:   "store fs: failed to read template default/missing.html",
 		},
 		{
 			name:     "non-existent theme",
@@ -214,7 +214,7 @@ func TestStorageFS_Find_ErrorCases(t *testing.T) {
 			template: "home.html",
 			wantErr:  true,
 			errIs:    ErrTemplateNotFound,
-			errMsg:   "storage fs: failed to read template missing/home.html",
+			errMsg:   "store fs: failed to read template missing/home.html",
 		},
 		{
 			name:     "both theme and template missing",
@@ -222,7 +222,7 @@ func TestStorageFS_Find_ErrorCases(t *testing.T) {
 			template: "missing.html",
 			wantErr:  true,
 			errIs:    ErrTemplateNotFound,
-			errMsg:   "storage fs: failed to read template missing/missing.html",
+			errMsg:   "store fs: failed to read template missing/missing.html",
 		},
 		{
 			name:     "empty theme name",
@@ -242,7 +242,7 @@ func TestStorageFS_Find_ErrorCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			template, err := storage.Find(context.Background(), tt.theme, tt.template)
+			template, err := store.Find(context.Background(), tt.theme, tt.template)
 
 			if tt.wantErr {
 				assert.Error(t, err, "Find() should return an error")
@@ -264,37 +264,37 @@ func TestStorageFS_Find_ErrorCases(t *testing.T) {
 	}
 }
 
-func TestStorageFS_Find_SubFSError(t *testing.T) {
+func TestStoreFS_Find_SubFSError(t *testing.T) {
 	// Create a mock filesystem that will cause Sub() to fail
 	fsys := &failingFS{}
 
-	storage := NewStorageFS(fsys)
+	store := NewStoreFS(fsys)
 
-	template, err := storage.Find(context.Background(), "test", "template.html")
+	template, err := store.Find(context.Background(), "test", "template.html")
 
 	assert.Error(t, err, "Find() should return an error when Sub() fails")
 	assert.Nil(t, template, "Find() should return nil template when Sub() fails")
 	assert.NotErrorIs(t, err, ErrTemplateNotFound, "Error should not be ErrTemplateNotFound for Sub() failure")
 }
 
-func TestStorageFS_Find_ReadFileError(t *testing.T) {
+func TestStoreFS_Find_ReadFileError(t *testing.T) {
 	// Create a filesystem that succeeds for Sub() but fails for ReadFile
 	fsys := &partialFailingFS{
 		subSuccess: true,
 	}
 
-	storage := NewStorageFS(fsys)
+	store := NewStoreFS(fsys)
 
-	template, err := storage.Find(context.Background(), "test", "template.html")
+	template, err := store.Find(context.Background(), "test", "template.html")
 
 	assert.Error(t, err, "Find() should return an error when ReadFile() fails")
 	assert.Nil(t, template, "Find() should return nil template when ReadFile() fails")
 	assert.NotErrorIs(t, err, ErrTemplateNotFound, "Error should not be ErrTemplateNotFound for ReadFile() failure")
 }
 
-func TestStorageFS_ImplementsInterface(t *testing.T) {
-	// Verify that StorageFS implements the Storage interface
-	var _ Storage = (*StorageFS)(nil)
+func TestStoreFS_ImplementsInterface(t *testing.T) {
+	// Verify that StoreFS implements the Store interface
+	var _ Store = (*StoreFS)(nil)
 
 	fsys := fstest.MapFS{
 		"test/template.html": &fstest.MapFile{
@@ -302,16 +302,16 @@ func TestStorageFS_ImplementsInterface(t *testing.T) {
 		},
 	}
 
-	storage := NewStorageFS(fsys)
+	store := NewStoreFS(fsys)
 
 	// All interface methods should be available and not panic
 	require.NotPanics(t, func() {
-		_, err := storage.Find(context.Background(), "test", "template.html")
+		_, err := store.Find(context.Background(), "test", "template.html")
 		require.NoError(t, err)
 	})
 }
 
-func TestStorageFS_ConcurrentAccess(t *testing.T) {
+func TestStoreFS_ConcurrentAccess(t *testing.T) {
 	fsys := fstest.MapFS{
 		"default/home.html": &fstest.MapFile{
 			Data: []byte("<div>Home</div>"),
@@ -324,7 +324,7 @@ func TestStorageFS_ConcurrentAccess(t *testing.T) {
 		},
 	}
 
-	storage := NewStorageFS(fsys)
+	store := NewStoreFS(fsys)
 
 	// Test concurrent reads
 	t.Run("concurrent finds", func(t *testing.T) {
@@ -338,7 +338,7 @@ func TestStorageFS_ConcurrentAccess(t *testing.T) {
 					templates := []string{"home.html", "dashboard.html", "post.html"}
 
 					for k, theme := range themes {
-						template, err := storage.Find(context.Background(), theme, templates[k])
+						template, err := store.Find(context.Background(), theme, templates[k])
 						assert.NoError(t, err, "Concurrent find failed: %v", err)
 						assert.NotNil(t, template, "Template should not be nil")
 					}

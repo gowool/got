@@ -28,11 +28,11 @@ import (
 )
 
 func main() {
-	// Create storage from filesystem
-	storage := got.NewStorageFS(os.DirFS("themes"))
+	// Create store from filesystem
+	store := got.NewStoreFS(os.DirFS("themes"))
 
 	// Create theme
-	theme := got.NewTheme("default", storage)
+	theme := got.NewTheme("default", store)
 	
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
@@ -83,31 +83,31 @@ Templates use HTML comments to define inheritance paths:
 Create parent-child theme relationships:
 
 ```go
-parent := got.NewTheme("default", storage)
-child := got.NewTheme("custom", storage)
+parent := got.NewTheme("default", store)
+child := got.NewTheme("custom", store)
 child.SetParent(parent)
 
 // Child theme will fallback to parent for missing templates
 ```
 
-## Storage Backends
+## Store Backends
 
-### Filesystem Storage
+### Filesystem Store
 ```go
-storage := got.NewStorageFS(os.DirFS("themes"))
+store := got.NewStoreFS(os.DirFS("themes"))
 ```
 
-### Memory Storage
+### Memory Store
 ```go
-storage := got.NewStorageMemory()
-storage.SetTemplate("theme", "template.html", "content")
+store := got.NewStoreMemory()
+store.SetTemplate("theme", "template.html", "content")
 ```
 
-### Chain Storage
+### Chain Store
 ```go
-chain := got.NewStorageChain()
-chain.Add(memoryStorage)
-chain.Add(fsStorage)
+chain := got.NewStoreChain()
+chain.Add(memoryStore)
+chain.Add(fsStore)
 ```
 
 ## License

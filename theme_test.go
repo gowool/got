@@ -17,9 +17,9 @@ func createTestTemplate(theme, name, content string) Template {
 }
 
 func TestNewTheme(t *testing.T) {
-	mockStorage := &MockStorage{}
+	mockStore := &MockStore{}
 
-	theme := NewTheme("test", mockStorage)
+	theme := NewTheme("test", mockStore)
 
 	assert.NotNil(t, theme)
 	assert.Equal(t, "test", theme.Name())
@@ -28,8 +28,8 @@ func TestNewTheme(t *testing.T) {
 }
 
 func TestTheme_Clear(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	// Clear should not panic
 	assert.NotPanics(t, func() {
@@ -38,8 +38,8 @@ func TestTheme_Clear(t *testing.T) {
 }
 
 func TestTheme_Debug(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	// Test default debug state
 	assert.False(t, theme.Debug())
@@ -58,9 +58,9 @@ func TestTheme_Debug(t *testing.T) {
 }
 
 func TestTheme_Parent(t *testing.T) {
-	mockStorage := &MockStorage{}
-	parentTheme := NewTheme("parent", mockStorage)
-	childTheme := NewTheme("child", mockStorage)
+	mockStore := &MockStore{}
+	parentTheme := NewTheme("parent", mockStore)
+	childTheme := NewTheme("child", mockStore)
 
 	// Test default parent state
 	assert.Nil(t, childTheme.Parent())
@@ -75,8 +75,8 @@ func TestTheme_Parent(t *testing.T) {
 }
 
 func TestTheme_FuncMap(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	// Test empty func map
 	funcMap := theme.FuncMap()
@@ -96,8 +96,8 @@ func TestTheme_FuncMap(t *testing.T) {
 }
 
 func TestTheme_AddFuncMap(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	// Test adding functions
 	funcMap1 := template.FuncMap{
@@ -136,25 +136,25 @@ func TestTheme_AddFuncMap(t *testing.T) {
 }
 
 func TestTheme_Write_WithCache(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	ctx := context.Background()
 	var buf strings.Builder
 
 	// Mock template that doesn't exist
-	mockStorage.On("Find", ctx, "test", "nonexistent").Return(nil, ErrTemplateNotFound).Once()
+	mockStore.On("Find", ctx, "test", "nonexistent").Return(nil, ErrTemplateNotFound).Once()
 
 	err := theme.Write(ctx, &buf, "nonexistent", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "template not found")
 
-	mockStorage.AssertExpectations(t)
+	mockStore.AssertExpectations(t)
 }
 
 func TestTheme_Write_WithDebug(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 	theme.SetDebug(true) // Enable debug mode to bypass cache
 
 	ctx := context.Background()
@@ -164,18 +164,18 @@ func TestTheme_Write_WithDebug(t *testing.T) {
 	templateContent := `<h1>{{.Title}}</h1>`
 	testTemplate := createTestTemplate("test", "simple", templateContent)
 
-	mockStorage.On("Find", ctx, "test", "simple").Return(testTemplate, nil).Once()
+	mockStore.On("Find", ctx, "test", "simple").Return(testTemplate, nil).Once()
 
 	err := theme.Write(ctx, &buf, "simple", map[string]string{"Title": "Hello World"})
 	assert.NoError(t, err)
 	assert.Equal(t, "<h1>Hello World</h1>", buf.String())
 
-	mockStorage.AssertExpectations(t)
+	mockStore.AssertExpectations(t)
 }
 
 func TestTheme_Write_WithDependencies(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	ctx := context.Background()
 	var buf strings.Builder
@@ -184,7 +184,7 @@ func TestTheme_Write_WithDependencies(t *testing.T) {
 	simpleContent := `<h1>{{.Title}}</h1><p>{{.Message}}</p>`
 	simpleTemplate := createTestTemplate("test", "simple", simpleContent)
 
-	mockStorage.On("Find", ctx, "test", "simple").Return(simpleTemplate, nil).Once()
+	mockStore.On("Find", ctx, "test", "simple").Return(simpleTemplate, nil).Once()
 
 	data := map[string]interface{}{
 		"Title":   "Test Page",
@@ -197,15 +197,15 @@ func TestTheme_Write_WithDependencies(t *testing.T) {
 	assert.Contains(t, result, "<h1>Test Page</h1>")
 	assert.Contains(t, result, "<p>Hello World!</p>")
 
-	mockStorage.AssertExpectations(t)
+	mockStore.AssertExpectations(t)
 }
 
 func TestTheme_Write_WithParentTheme(t *testing.T) {
-	parentStorage := &MockStorage{}
-	childStorage := &MockStorage{}
+	parentStore := &MockStore{}
+	childStore := &MockStore{}
 
-	parentTheme := NewTheme("parent", parentStorage)
-	childTheme := NewTheme("child", childStorage)
+	parentTheme := NewTheme("parent", parentStore)
+	childTheme := NewTheme("child", childStore)
 	childTheme.SetParent(parentTheme)
 
 	ctx := context.Background()
@@ -216,20 +216,20 @@ func TestTheme_Write_WithParentTheme(t *testing.T) {
 	parentTemplate := createTestTemplate("parent", "inherited", templateContent)
 
 	// Child theme doesn't have this template
-	childStorage.On("Find", ctx, "child", "inherited").Return(nil, ErrTemplateNotFound).Once()
-	parentStorage.On("Find", ctx, "parent", "inherited").Return(parentTemplate, nil).Once()
+	childStore.On("Find", ctx, "child", "inherited").Return(nil, ErrTemplateNotFound).Once()
+	parentStore.On("Find", ctx, "parent", "inherited").Return(parentTemplate, nil).Once()
 
 	err := childTheme.Write(ctx, &buf, "inherited", map[string]string{"Title": "Inherited Template"})
 	assert.NoError(t, err)
 	assert.Equal(t, "<h1>Inherited Template</h1>", buf.String())
 
-	childStorage.AssertExpectations(t)
-	parentStorage.AssertExpectations(t)
+	childStore.AssertExpectations(t)
+	parentStore.AssertExpectations(t)
 }
 
 func TestTheme_Write_WithComplexDependencies(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	ctx := context.Background()
 	var buf strings.Builder
@@ -246,7 +246,7 @@ func TestTheme_Write_WithComplexDependencies(t *testing.T) {
 </html>`
 	complexTemplate := createTestTemplate("test", "complex", complexContent)
 
-	mockStorage.On("Find", ctx, "test", "complex").Return(complexTemplate, nil).Once()
+	mockStore.On("Find", ctx, "test", "complex").Return(complexTemplate, nil).Once()
 
 	data := map[string]interface{}{
 		"Title":    "Complex Page",
@@ -265,51 +265,51 @@ func TestTheme_Write_WithComplexDependencies(t *testing.T) {
 	assert.Contains(t, result, "<p>Item 3</p>")
 	assert.Contains(t, result, "<footer>&copy; 2023</footer>")
 
-	mockStorage.AssertExpectations(t)
+	mockStore.AssertExpectations(t)
 }
 
 func TestTheme_Write_TemplateNotFoundError(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	ctx := context.Background()
 	var buf strings.Builder
 
-	mockStorage.On("Find", ctx, "test", "missing").Return(nil, ErrTemplateNotFound).Once()
+	mockStore.On("Find", ctx, "test", "missing").Return(nil, ErrTemplateNotFound).Once()
 
 	err := theme.Write(ctx, &buf, "missing", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to find template test/missing")
 	assert.Contains(t, err.Error(), "template not found")
 
-	mockStorage.AssertExpectations(t)
+	mockStore.AssertExpectations(t)
 }
 
 func TestTheme_Write_ParentTemplateNotFoundError(t *testing.T) {
-	parentStorage := &MockStorage{}
-	childStorage := &MockStorage{}
+	parentStore := &MockStore{}
+	childStore := &MockStore{}
 
-	parentTheme := NewTheme("parent", parentStorage)
-	childTheme := NewTheme("child", childStorage)
+	parentTheme := NewTheme("parent", parentStore)
+	childTheme := NewTheme("child", childStore)
 	childTheme.SetParent(parentTheme)
 
 	ctx := context.Background()
 	var buf strings.Builder
 
-	childStorage.On("Find", ctx, "child", "missing").Return(nil, ErrTemplateNotFound).Once()
-	parentStorage.On("Find", ctx, "parent", "missing").Return(nil, ErrTemplateNotFound).Once()
+	childStore.On("Find", ctx, "child", "missing").Return(nil, ErrTemplateNotFound).Once()
+	parentStore.On("Find", ctx, "parent", "missing").Return(nil, ErrTemplateNotFound).Once()
 
 	err := childTheme.Write(ctx, &buf, "missing", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to find template child/missing")
 
-	childStorage.AssertExpectations(t)
-	parentStorage.AssertExpectations(t)
+	childStore.AssertExpectations(t)
+	parentStore.AssertExpectations(t)
 }
 
 func TestTheme_Write_WithParseError(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	ctx := context.Background()
 	var buf strings.Builder
@@ -318,22 +318,22 @@ func TestTheme_Write_WithParseError(t *testing.T) {
 	invalidContent := `<h1>{{.Title</h1>` // Missing closing brace
 	invalidTemplate := createTestTemplate("test", "invalid", invalidContent)
 
-	mockStorage.On("Find", ctx, "test", "invalid").Return(invalidTemplate, nil).Once()
+	mockStore.On("Find", ctx, "test", "invalid").Return(invalidTemplate, nil).Once()
 
 	err := theme.Write(ctx, &buf, "invalid", map[string]string{"Title": "Test"})
 	assert.Error(t, err)
 	// The error should contain template parsing information
 	assert.Contains(t, err.Error(), "template:")
 
-	mockStorage.AssertExpectations(t)
+	mockStore.AssertExpectations(t)
 }
 
 func TestTheme_ParentDebugPropagation(t *testing.T) {
-	parentStorage := &MockStorage{}
-	childStorage := &MockStorage{}
+	parentStore := &MockStore{}
+	childStore := &MockStore{}
 
-	parentTheme := NewTheme("parent", parentStorage)
-	childTheme := NewTheme("child", childStorage)
+	parentTheme := NewTheme("parent", parentStore)
+	childTheme := NewTheme("child", childStore)
 	childTheme.SetParent(parentTheme)
 
 	// Test debug propagation from child to parent
@@ -348,11 +348,11 @@ func TestTheme_ParentDebugPropagation(t *testing.T) {
 }
 
 func TestTheme_ParentFuncMapPropagation(t *testing.T) {
-	parentStorage := &MockStorage{}
-	childStorage := &MockStorage{}
+	parentStore := &MockStore{}
+	childStore := &MockStore{}
 
-	parentTheme := NewTheme("parent", parentStorage)
-	childTheme := NewTheme("child", childStorage)
+	parentTheme := NewTheme("parent", parentStore)
+	childTheme := NewTheme("child", childStore)
 	childTheme.SetParent(parentTheme)
 
 	// Test func map propagation from child to parent
@@ -367,8 +367,8 @@ func TestTheme_ParentFuncMapPropagation(t *testing.T) {
 }
 
 func TestTheme_Reset(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	// Enable debug and add some functions to cache
 	theme.SetDebug(true)
@@ -387,8 +387,8 @@ func TestTheme_Reset(t *testing.T) {
 }
 
 func TestTheme_ConcurrentAccess(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	ctx := context.Background()
 
@@ -396,7 +396,7 @@ func TestTheme_ConcurrentAccess(t *testing.T) {
 	templateContent := `<h1>{{.Title}}</h1>`
 	testTemplate := createTestTemplate("test", "simple", templateContent)
 
-	mockStorage.On("Find", ctx, "test", "simple").Return(testTemplate, nil).Maybe()
+	mockStore.On("Find", ctx, "test", "simple").Return(testTemplate, nil).Maybe()
 
 	var wg sync.WaitGroup
 	numGoroutines := 10
@@ -433,8 +433,8 @@ func TestTheme_ConcurrentAccess(t *testing.T) {
 }
 
 func TestTheme_WithEmptyContent(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	ctx := context.Background()
 	var buf strings.Builder
@@ -442,18 +442,18 @@ func TestTheme_WithEmptyContent(t *testing.T) {
 	// Create a template with empty content
 	emptyTemplate := createTestTemplate("test", "empty", "")
 
-	mockStorage.On("Find", ctx, "test", "empty").Return(emptyTemplate, nil).Once()
+	mockStore.On("Find", ctx, "test", "empty").Return(emptyTemplate, nil).Once()
 
 	err := theme.Write(ctx, &buf, "empty", nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "", buf.String())
 
-	mockStorage.AssertExpectations(t)
+	mockStore.AssertExpectations(t)
 }
 
 func TestTheme_WithComplexData(t *testing.T) {
-	mockStorage := &MockStorage{}
-	theme := NewTheme("test", mockStorage)
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
 
 	ctx := context.Background()
 	var buf strings.Builder
@@ -462,7 +462,7 @@ func TestTheme_WithComplexData(t *testing.T) {
 	complexContent := `{{range .Items}}{{$index := .Index}}{{$value := .Value}}Item {{$index}}: {{$value}} {{end}}`
 	complexTemplate := createTestTemplate("test", "complex", complexContent)
 
-	mockStorage.On("Find", ctx, "test", "complex").Return(complexTemplate, nil).Once()
+	mockStore.On("Find", ctx, "test", "complex").Return(complexTemplate, nil).Once()
 
 	type Item struct {
 		Index int
@@ -484,5 +484,5 @@ func TestTheme_WithComplexData(t *testing.T) {
 	assert.Contains(t, result, "Item 2: Second")
 	assert.Contains(t, result, "Item 3: Third")
 
-	mockStorage.AssertExpectations(t)
+	mockStore.AssertExpectations(t)
 }

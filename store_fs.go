@@ -9,20 +9,20 @@ import (
 	"github.com/gowool/got/internal"
 )
 
-var _ Storage = (*StorageFS)(nil)
+var _ Store = (*StoreFS)(nil)
 
-// StorageFS is a storage implementation that loads templates from a filesystem.
-type StorageFS struct {
+// StoreFS is a store implementation that loads templates from a filesystem.
+type StoreFS struct {
 	fs fs.FS
 }
 
-func NewStorageFS(fsys fs.FS) *StorageFS {
-	return &StorageFS{
+func NewStoreFS(fsys fs.FS) *StoreFS {
+	return &StoreFS{
 		fs: fsys,
 	}
 }
 
-func (s *StorageFS) Find(_ context.Context, theme, name string) (Template, error) {
+func (s *StoreFS) Find(_ context.Context, theme, name string) (Template, error) {
 	fsys, err := fs.Sub(s.fs, theme)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func (s *StorageFS) Find(_ context.Context, theme, name string) (Template, error
 		if errors.Is(err, fs.ErrNotExist) {
 			err = errors.Join(err, ErrTemplateNotFound)
 		}
-		return nil, fmt.Errorf("storage fs: failed to read template %s/%s: %w", theme, name, err)
+		return nil, fmt.Errorf("store fs: failed to read template %s/%s: %w", theme, name, err)
 	}
 
 	return newTemplate(theme, name, internal.String(raw)), nil
