@@ -2,6 +2,7 @@ package got
 
 import (
 	"html/template"
+	"net/http"
 	"testing"
 	"time"
 
@@ -240,6 +241,12 @@ func TestFuncs_StringOperations(t *testing.T) {
 		fn := Funcs["str_build"].(func(...string) string)
 		result := fn("hello", " ", "world")
 		assert.Equal(t, "hello world", result)
+	})
+
+	t.Run("str_status", func(t *testing.T) {
+		fn := Funcs["str_status"].(func(int) string)
+		result := fn(http.StatusNotFound)
+		assert.Equal(t, http.StatusText(http.StatusNotFound), result)
 	})
 
 	t.Run("str_camelcase", func(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"html"
 	"html/template"
 	"maps"
+	"net/http"
 	"reflect"
 	"slices"
 	"strings"
@@ -103,6 +104,7 @@ var Funcs = template.FuncMap{
 		}
 		return b.String()
 	},
+	"str_status":      http.StatusText,
 	"str_camelcase":   camelcase.Camelcase,
 	"str_snakecase":   snakecase.Snakecase,
 	"str_trim_space":  strings.TrimSpace,
