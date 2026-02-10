@@ -486,3 +486,300 @@ func TestTheme_WithComplexData(t *testing.T) {
 
 	mockStore.AssertExpectations(t)
 }
+
+func TestTheme_Render_SimpleTemplate(t *testing.T) {
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
+
+	ctx := context.Background()
+
+	// Create a simple template
+	templateContent := `<h1>{{.Title}}</h1>`
+	testTemplate := createTestTemplate("test", "simple", templateContent)
+
+	mockStore.On("Find", ctx, "test", "simple").Return(testTemplate, nil).Once()
+
+	data := map[string]string{"Title": "Hello World"}
+	result, err := theme.Render(ctx, "simple", data)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "<h1>Hello World</h1>", string(result))
+	assert.IsType(t, []byte{}, result, "Render should return []byte")
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestTheme_Render_WithNilData(t *testing.T) {
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
+
+	ctx := context.Background()
+
+	// Create a template that works with nil data
+	templateContent := `<div>Static content</div>`
+	testTemplate := createTestTemplate("test", "static", templateContent)
+
+	mockStore.On("Find", ctx, "test", "static").Return(testTemplate, nil).Once()
+
+	result, err := theme.Render(ctx, "static", nil)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "<div>Static content</div>", string(result))
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestTheme_Render_TemplateNotFoundError(t *testing.T) {
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
+
+	ctx := context.Background()
+
+	mockStore.On("Find", ctx, "test", "missing").Return(nil, ErrTemplateNotFound).Once()
+
+	result, err := theme.Render(ctx, "missing", nil)
+
+	assert.Error(t, err)
+	assert.Nil(t, result, "Render should return nil on error")
+	assert.Contains(t, err.Error(), "failed to find template test/missing")
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestTheme_Render_WithParseError(t *testing.T) {
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
+
+	ctx := context.Background()
+
+	// Create a template with invalid syntax
+	invalidContent := `<h1>{{.Title</h1>`
+	invalidTemplate := createTestTemplate("test", "invalid", invalidContent)
+
+	mockStore.On("Find", ctx, "test", "invalid").Return(invalidTemplate, nil).Once()
+
+	result, err := theme.Render(ctx, "invalid", map[string]string{"Title": "Test"})
+
+	assert.Error(t, err)
+	assert.Nil(t, result, "Render should return nil on parse error")
+	assert.Contains(t, err.Error(), "template:")
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestTheme_Render_WithEmptyContent(t *testing.T) {
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
+
+	ctx := context.Background()
+
+	// Create a template with empty content
+	emptyTemplate := createTestTemplate("test", "empty", "")
+
+	mockStore.On("Find", ctx, "test", "empty").Return(emptyTemplate, nil).Once()
+
+	result, err := theme.Render(ctx, "empty", nil)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(nil), result, "Render should return nil byte slice for empty content")
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestTheme_Render_WithComplexData(t *testing.T) {
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
+
+	ctx := context.Background()
+
+	// Create a template with complex data
+	complexContent := `{{range .Items}}{{$index := .Index}}{{$value := .Value}}Item {{$index}}: {{$value}} {{end}}`
+	complexTemplate := createTestTemplate("test", "complex", complexContent)
+
+	mockStore.On("Find", ctx, "test", "complex").Return(complexTemplate, nil).Once()
+
+	type Item struct {
+		Index int
+		Value string
+	}
+
+	data := map[string][]Item{
+		"Items": {
+			{Index: 1, Value: "First"},
+			{Index: 2, Value: "Second"},
+			{Index: 3, Value: "Third"},
+		},
+	}
+
+	result, err := theme.Render(ctx, "complex", data)
+
+	assert.NoError(t, err)
+	assert.Contains(t, string(result), "Item 1: First")
+	assert.Contains(t, string(result), "Item 2: Second")
+	assert.Contains(t, string(result), "Item 3: Third")
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestTheme_Render_WithDebugMode(t *testing.T) {
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
+	theme.SetDebug(true)
+
+	ctx := context.Background()
+
+	// Create a simple template
+	templateContent := `<h1>{{.Title}}</h1>`
+	testTemplate := createTestTemplate("test", "simple", templateContent)
+
+	mockStore.On("Find", ctx, "test", "simple").Return(testTemplate, nil).Once()
+
+	data := map[string]string{"Title": "Hello World"}
+	result, err := theme.Render(ctx, "simple", data)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "<h1>Hello World</h1>", string(result))
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestTheme_Render_WithCache(t *testing.T) {
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
+
+	ctx := context.Background()
+
+	// Create a simple template
+	templateContent := `<h1>{{.Title}}</h1>`
+	testTemplate := createTestTemplate("test", "simple", templateContent)
+
+	// The template should only be fetched once (first call caches it)
+	mockStore.On("Find", ctx, "test", "simple").Return(testTemplate, nil).Once()
+
+	data := map[string]string{"Title": "Hello World"}
+
+	// First call - should fetch from store
+	result1, err := theme.Render(ctx, "simple", data)
+	assert.NoError(t, err)
+	assert.Equal(t, "<h1>Hello World</h1>", string(result1))
+
+	// Second call - should use cache (no additional store.Find call)
+	result2, err := theme.Render(ctx, "simple", data)
+	assert.NoError(t, err)
+	assert.Equal(t, "<h1>Hello World</h1>", string(result2))
+
+	// Both results should be the same
+	assert.Equal(t, result1, result2)
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestTheme_Render_WithParentTheme(t *testing.T) {
+	parentStore := &MockStore{}
+	childStore := &MockStore{}
+
+	parentTheme := NewTheme("parent", parentStore)
+	childTheme := NewTheme("child", childStore)
+	childTheme.SetParent(parentTheme)
+
+	ctx := context.Background()
+
+	// Template exists in parent theme
+	templateContent := `<h1>{{.Title}}</h1>`
+	parentTemplate := createTestTemplate("parent", "inherited", templateContent)
+
+	// Child theme doesn't have this template
+	childStore.On("Find", ctx, "child", "inherited").Return(nil, ErrTemplateNotFound).Once()
+	parentStore.On("Find", ctx, "parent", "inherited").Return(parentTemplate, nil).Once()
+
+	result, err := childTheme.Render(ctx, "inherited", map[string]string{"Title": "Inherited Template"})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "<h1>Inherited Template</h1>", string(result))
+
+	childStore.AssertExpectations(t)
+	parentStore.AssertExpectations(t)
+}
+
+func TestTheme_Render_WithUnicodeContent(t *testing.T) {
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
+
+	ctx := context.Background()
+
+	// Create a template with unicode content
+	templateContent := `<h1>{{.Title}}</h1><p>{{.Message}}</p>`
+	testTemplate := createTestTemplate("test", "unicode", templateContent)
+
+	mockStore.On("Find", ctx, "test", "unicode").Return(testTemplate, nil).Once()
+
+	data := map[string]string{
+		"Title":   "🎉 Unicode Test",
+		"Message": "こんにちは世界 🌍",
+	}
+
+	result, err := theme.Render(ctx, "unicode", data)
+
+	assert.NoError(t, err)
+	assert.Contains(t, string(result), "🎉 Unicode Test")
+	assert.Contains(t, string(result), "こんにちは世界 🌍")
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestTheme_Render_WithSpecialCharacters(t *testing.T) {
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
+
+	ctx := context.Background()
+
+	// Create a template with special HTML characters
+	templateContent := `<div>{{.Content}}</div>`
+	testTemplate := createTestTemplate("test", "special", templateContent)
+
+	mockStore.On("Find", ctx, "test", "special").Return(testTemplate, nil).Once()
+
+	data := map[string]string{"Content": `<script>alert("XSS")</script>`}
+
+	result, err := theme.Render(ctx, "special", data)
+
+	assert.NoError(t, err)
+	// Go's html/template auto-escapes HTML by default
+	assert.Contains(t, string(result), "&lt;script&gt;")
+
+	mockStore.AssertExpectations(t)
+}
+
+func TestTheme_Render_ConcurrentAccess(t *testing.T) {
+	mockStore := &MockStore{}
+	theme := NewTheme("test", mockStore)
+
+	ctx := context.Background()
+
+	// Create a simple template
+	templateContent := `<h1>{{.Title}}</h1>`
+	testTemplate := createTestTemplate("test", "simple", templateContent)
+
+	mockStore.On("Find", ctx, "test", "simple").Return(testTemplate, nil).Maybe()
+
+	var wg sync.WaitGroup
+	numGoroutines := 10
+	numIterations := 5
+
+	// Test concurrent renders
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < numIterations; j++ {
+				data := map[string]string{"Title": "Test"}
+				result, err := theme.Render(ctx, "simple", data)
+				assert.NoError(t, err)
+				assert.Equal(t, "<h1>Test</h1>", string(result))
+				assert.IsType(t, []byte{}, result)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+}
