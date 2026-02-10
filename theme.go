@@ -1,6 +1,7 @@
 package got
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -23,12 +24,14 @@ type Theme struct {
 	funcMap sync.Map
 	debug   atomic.Bool
 	parent  atomic.Pointer[Theme]
+	pool    sync.Pool
 }
 
 func NewTheme(name string, store Store) *Theme {
 	return &Theme{
 		name:  name,
 		store: store,
+		pool:  sync.Pool{New: func() any { return new(bytes.Buffer) }},
 	}
 }
 
@@ -111,6 +114,19 @@ func (t *Theme) Write(ctx context.Context, w io.Writer, name string, data any) e
 	}
 
 	return tpl.Execute(w, data)
+}
+
+func (t *Theme) Render(ctx context.Context, name string, data any) ([]byte, error) {
+	buf := t.pool.Get().(*bytes.Buffer)
+	defer func() {
+		buf.Reset()
+		t.pool.Put(buf)
+	}()
+
+	if err := t.Write(ctx, buf, name, data); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (t *Theme) buildTemplate(ctx context.Context, name string) (*template.Template, error) {
