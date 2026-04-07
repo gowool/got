@@ -18,13 +18,14 @@ var (
 )
 
 type Theme struct {
-	name    string
-	store   Store
-	cache   sync.Map
-	funcMap sync.Map
-	debug   atomic.Bool
-	parent  atomic.Pointer[Theme]
-	pool    sync.Pool
+	name     string
+	store    Store
+	children sync.Map
+	cache    sync.Map
+	funcMap  sync.Map
+	debug    atomic.Bool
+	parent   atomic.Pointer[Theme]
+	pool     sync.Pool
 }
 
 func NewTheme(name string, store Store) *Theme {
@@ -36,6 +37,11 @@ func NewTheme(name string, store Store) *Theme {
 }
 
 func (t *Theme) Clear() {
+	t.children.Range(func(_, value any) bool {
+		value.(*Theme).SetParent(nil)
+		return true
+	})
+	t.children.Clear()
 	t.reset()
 }
 
@@ -44,10 +50,18 @@ func (t *Theme) Name() string {
 }
 
 func (t *Theme) Debug() bool {
+	if parent := t.Parent(); parent != nil {
+		return parent.Debug()
+	}
 	return t.debug.Load()
 }
 
 func (t *Theme) SetDebug(debug bool) {
+	if parent := t.Parent(); parent != nil {
+		parent.SetDebug(debug)
+		return
+	}
+
 	if t.debug.Load() == debug {
 		return
 	}
@@ -62,7 +76,13 @@ func (t *Theme) Parent() *Theme {
 
 func (t *Theme) SetParent(parent *Theme) {
 	t.parent.Store(parent)
-	t.reset()
+	if parent == nil {
+		t.reset()
+		return
+	}
+
+	parent.children.Store(t.name, t)
+	parent.parentReset()
 }
 
 func (t *Theme) FuncMap() template.FuncMap {
@@ -83,16 +103,34 @@ func (t *Theme) AddFuncMap(funcMap template.FuncMap) {
 	for k, v := range funcMap {
 		t.funcMap.Store(k, v)
 	}
+	t.parentReset()
+}
+
+func (t *Theme) parentReset() {
+	if parent := t.Parent(); parent != nil {
+		parent.parentReset()
+		return
+	}
 	t.reset()
 }
 
 func (t *Theme) reset() {
 	t.cache.Clear()
 
-	if parent := t.parent.Load(); parent != nil {
-		parent.SetFuncMap(t.FuncMap())
-		parent.SetDebug(t.debug.Load())
-	}
+	t.children.Range(func(_, value any) bool {
+		child := value.(*Theme)
+
+		t.funcMap.Range(func(key, value any) bool {
+			if _, ok := child.funcMap.Load(key); !ok {
+				child.funcMap.Store(key, value)
+			}
+			return true
+		})
+
+		child.reset()
+
+		return true
+	})
 }
 
 func (t *Theme) Write(ctx context.Context, w io.Writer, name string, data any) error {

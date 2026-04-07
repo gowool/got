@@ -28,13 +28,20 @@ func TestNewTheme(t *testing.T) {
 }
 
 func TestTheme_Clear(t *testing.T) {
-	mockStore := &MockStore{}
-	theme := NewTheme("test", mockStore)
+	parentStore := &MockStore{}
+	childStore := &MockStore{}
 
+	parentTheme := NewTheme("parent", parentStore)
+	childTheme := NewTheme("child", childStore)
+	childTheme.SetParent(parentTheme)
+
+	assert.NotNil(t, childTheme.Parent())
 	// Clear should not panic
 	assert.NotPanics(t, func() {
-		theme.Clear()
+		parentTheme.Clear()
 	})
+
+	assert.Nil(t, childTheme.Parent())
 }
 
 func TestTheme_Debug(t *testing.T) {
@@ -59,6 +66,7 @@ func TestTheme_Debug(t *testing.T) {
 
 func TestTheme_Parent(t *testing.T) {
 	mockStore := &MockStore{}
+	rootTheme := NewTheme("root", mockStore)
 	parentTheme := NewTheme("parent", mockStore)
 	childTheme := NewTheme("child", mockStore)
 
@@ -66,6 +74,7 @@ func TestTheme_Parent(t *testing.T) {
 	assert.Nil(t, childTheme.Parent())
 
 	// Test setting parent
+	parentTheme.SetParent(rootTheme)
 	childTheme.SetParent(parentTheme)
 	assert.Equal(t, parentTheme, childTheme.Parent())
 
@@ -347,7 +356,7 @@ func TestTheme_ParentDebugPropagation(t *testing.T) {
 	assert.False(t, parentTheme.Debug())
 }
 
-func TestTheme_ParentFuncMapPropagation(t *testing.T) {
+func TestTheme_ParentForwardFuncMap(t *testing.T) {
 	parentStore := &MockStore{}
 	childStore := &MockStore{}
 
@@ -360,10 +369,10 @@ func TestTheme_ParentFuncMapPropagation(t *testing.T) {
 		"upper": strings.ToUpper,
 	}
 
-	childTheme.SetFuncMap(customFuncMap)
+	parentTheme.SetFuncMap(customFuncMap)
 
-	parentFuncMap := parentTheme.FuncMap()
-	assert.Contains(t, parentFuncMap, "upper")
+	childFuncMap := childTheme.FuncMap()
+	assert.Contains(t, childFuncMap, "upper")
 }
 
 func TestTheme_Reset(t *testing.T) {
