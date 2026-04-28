@@ -36,8 +36,10 @@ var Funcs = template.FuncMap{
 			return true
 		}
 		switch g.Kind() {
-		case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		case reflect.Chan, reflect.Func, reflect.Map, reflect.Slice:
 			return g.IsNil() || g.IsZero() || (g.Len() == 0)
+		case reflect.Interface, reflect.Pointer:
+			return g.IsNil() || g.IsZero()
 		default:
 			return g.IsZero()
 		}
